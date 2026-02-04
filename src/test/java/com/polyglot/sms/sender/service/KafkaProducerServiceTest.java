@@ -8,7 +8,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -21,6 +20,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import com.polyglot.sms.sender.repository.FailedEventRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @ExtendWith(MockitoExtension.class)
 class KafkaProducerServiceTest {
@@ -29,7 +30,10 @@ class KafkaProducerServiceTest {
     private KafkaTemplate<String, Object> kafkaTemplate;
 
     @Mock
-    private MongoTemplate mongoTemplate;
+    private FailedEventRepository repository;
+
+    @Mock
+    private ObjectMapper objectMapper;
 
     @InjectMocks
     private KafkaProducerService kafkaProducerService;
@@ -56,11 +60,11 @@ class KafkaProducerServiceTest {
 
         // Assert
         verify(kafkaTemplate).send(topic, key, payload);
-        verify(mongoTemplate, never()).save(any(FailedKafkaEvent.class));
+        verify(repository, never()).save(any(FailedKafkaEvent.class));
     }
 
     @Test
-    @DisplayName("Should save to Mongo when Kafka throws Synchronous Exception")
+    @DisplayName("Should save to SQL when Kafka throws Synchronous Exception")
     void testSendMessage_SyncFailure() {
         // Arrange
         when(kafkaTemplate.send(anyString(), anyString(), any()))
@@ -70,17 +74,17 @@ class KafkaProducerServiceTest {
         kafkaProducerService.sendMessage(topic, key, payload);
 
         // Assert
-        verify(mongoTemplate, times(1)).save(any(FailedKafkaEvent.class));
+        verify(repository, times(1)).save(any(FailedKafkaEvent.class));
         
         // Verify correct data saved to fallback
         ArgumentCaptor<FailedKafkaEvent> captor = ArgumentCaptor.forClass(FailedKafkaEvent.class);
-        verify(mongoTemplate).save(captor.capture());
-        assertThat(captor.getValue().getKey()).isEqualTo(key);
+        verify(repository).save(captor.capture());
+        assertThat(captor.getValue().getEventKey()).isEqualTo(key);
         assertThat(captor.getValue().getTopic()).isEqualTo(topic);
     }
 
     @Test
-    @DisplayName("Should save to Mongo when Kafka fails Asynchronously")
+    @DisplayName("Should save to SQL when Kafka fails Asynchronously")
     void testSendMessage_AsyncFailure() {
         // Arrange: send() works, but the future fails later
         CompletableFuture<SendResult<String, Object>> future = new CompletableFuture<>();
@@ -93,23 +97,41 @@ class KafkaProducerServiceTest {
 
         // Assert
         await().atMost(1, TimeUnit.SECONDS).untilAsserted(() -> {
-            verify(mongoTemplate, times(1)).save(any(FailedKafkaEvent.class));
+            verify(repository, times(1)).save(any(FailedKafkaEvent.class));
         });
     }
 
     @Test
-    @DisplayName("Should log error when both Kafka and Mongo fail")
+    @DisplayName("Should log error when both Kafka and SQL fail")
     void testSendMessage_TotalFailure() {
         // Arrange
         when(kafkaTemplate.send(anyString(), anyString(), any()))
                 .thenThrow(new RuntimeException("Kafka Dead"));
-        when(mongoTemplate.save(any(FailedKafkaEvent.class)))
-                .thenThrow(new RuntimeException("Mongo Dead"));
+        when(repository.save(any(FailedKafkaEvent.class)))
+                .thenThrow(new RuntimeException("SQL Dead"));
 
         // Act & Assert
         kafkaProducerService.sendMessage(topic, key, payload);
         
         verify(kafkaTemplate).send(topic, key, payload);
-        verify(mongoTemplate).save(any(FailedKafkaEvent.class));
+        verify(repository).save(any(FailedKafkaEvent.class));
+    }
+
+    @Test
+    @DisplayName("Should handle JSON exception gracefully")
+    void testSendMessage_JsonFailure() throws Exception {
+        // Arrange
+        when(kafkaTemplate.send(anyString(), anyString(), any()))
+                .thenThrow(new RuntimeException("Kafka Down"));
+        
+        // Simulate Jackson failing
+        when(objectMapper.writeValueAsString(any()))
+                .thenThrow(mock(com.fasterxml.jackson.core.JsonProcessingException.class));
+
+        // Act
+        kafkaProducerService.sendMessage(topic, key, payload);
+
+        // Assert
+        verify(repository, never()).save(any()); // Should not save if JSON fails
     }
 }

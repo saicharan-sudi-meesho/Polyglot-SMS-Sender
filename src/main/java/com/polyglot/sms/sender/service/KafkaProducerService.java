@@ -5,18 +5,20 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Service;
-import org.springframework.data.mongodb.core.MongoTemplate;
 import com.polyglot.sms.sender.entity.FailedKafkaEvent;
-
+import com.polyglot.sms.sender.repository.FailedEventRepository;
 import java.util.concurrent.CompletableFuture;
-
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class KafkaProducerService {
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
-    private final MongoTemplate mongoTemplate;
+    // private final MongoTemplate mongoTemplate;
+    private final FailedEventRepository repository;
+    private final ObjectMapper objectMapper;
 
     public void sendMessage(String topic, String key, Object event) {
         try {
@@ -26,7 +28,7 @@ public class KafkaProducerService {
             // Asynchronous failures when kafka crashes after data being sent to broker
             future.whenComplete((result, ex) -> {
                 if (ex != null) {
-                    log.error("Async Kafka Failure. Saving to Mongo. Key: {}", key, ex);
+                    log.error("Async Kafka Failure. Saving to SQL. Key: {}", key, ex);
                     saveToFallback(topic, key, event);
                 } else {
                     log.info("Success: Offset {}", result.getRecordMetadata().offset());
@@ -35,22 +37,31 @@ public class KafkaProducerService {
 
         } catch (Exception e) {
             // Synchronous failures (Kafka totally down / Metadata timeout)
-            log.error("Sync Kafka Failure (Metadata/Timeout). Saving to Mongo. Key: {}", key, e);
+            log.error("Sync Kafka Failure (Metadata/Timeout). Saving to SQL. Key: {}", key, e);
             saveToFallback(topic, key, event);
         }
     }
 
     private void saveToFallback(String topic, String key, Object event) {
         try {
+            // Convert the object to a JSON String
+            String payload = objectMapper.writeValueAsString(event);
+            
             FailedKafkaEvent fallback = FailedKafkaEvent.builder()
                     .topic(topic)
-                    .key(key)
-                    .event(event)
+                    .eventKey(key)
+                    .eventPayload(payload)
                     .createdAt(System.currentTimeMillis())
                     .build();
-            mongoTemplate.save(fallback);
-        } catch (Exception ex) {
-            log.error("CRITICAL: Both Kafka and Mongo are DOWN. Data lost for user: {}", key);
+            
+            repository.save(fallback);
+            
+            log.info("Saved failed event to SQL fallback for key: {}", key);
+            
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize event to JSON for key: {}", key, e);
+        } catch (Exception e) {
+            log.error("CRITICAL: Both Kafka and SQL are DOWN. Data lost for key: {}", key, e);
         }
     }
 }

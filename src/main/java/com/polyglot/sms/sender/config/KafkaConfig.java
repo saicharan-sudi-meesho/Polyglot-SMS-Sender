@@ -16,8 +16,8 @@ public class KafkaConfig {
     @Bean
     public NewTopic smsEventsTopic() {
         return TopicBuilder.name(topicName)
-                .partitions(1)
-                .replicas(1)
+                .partitions(3)
+                .replicas(3)
                 .build();
     }
 }

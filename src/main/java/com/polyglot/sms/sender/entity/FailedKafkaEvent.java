@@ -1,19 +1,30 @@
 package com.polyglot.sms.sender.entity;
 
 import lombok.*;
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+import jakarta.persistence.Id;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Column;
 
-@Document(collection = "failed_kafka_events")
+
+@Entity
+@Table(name = "failed_kafka_events")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class FailedKafkaEvent {
     @Id
-    private String id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
     private String topic;
-    private String key;
-    private Object event; // Jackson will convert your SmsEvent into a BSON document
+    private String eventKey;
+    
+    @Column(columnDefinition = "TEXT") // Stores the JSON payload
+    private String eventPayload;
+    
     private long createdAt;
 }
