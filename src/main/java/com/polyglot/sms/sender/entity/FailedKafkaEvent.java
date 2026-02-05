@@ -27,4 +27,8 @@ public class FailedKafkaEvent {
     private String eventPayload;
     
     private long createdAt;
+    @Builder.Default
+    private String status = "PENDING"; // PENDING, PROCESSING
+    @Builder.Default
+    private int retryCount = 0;
 }

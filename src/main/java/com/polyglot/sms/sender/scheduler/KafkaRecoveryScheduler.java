@@ -10,6 +10,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import java.util.List;
 import com.polyglot.sms.sender.dto.SmsEvent;
+import java.util.concurrent.TimeUnit;
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -22,31 +23,35 @@ public class KafkaRecoveryScheduler {
     @Scheduled(fixedDelay = 60000)
     public void retryFailedEvents() {
         
-        List<FailedKafkaEvent> failures = repository.findTop50Oldest();
+        List<FailedKafkaEvent> failures = repository.claimAndGetTop50Pending();
         
         if (failures.isEmpty()) {
             return;
         }
 
         log.info("Kafka Recovery: Processing {} failed events from SQL...", failures.size());
-
-        for (FailedKafkaEvent failure : failures) {
+        int processedCount = 0;
+        for (int i = 0; i < failures.size(); i++) {
+            FailedKafkaEvent failure = failures.get(i);
             try {
                 // Converting JSON String back to an Object
                 SmsEvent eventObject = objectMapper.readValue(failure.getEventPayload(), SmsEvent.class);
-
-                // Resend to Kafka and wait for confirmation (.get())
-                kafkaTemplate.send(failure.getTopic(), failure.getEventKey(), eventObject).get();
-
-                // If successful, remove from SQL
+                // Using a timeout to prevent hanging
+                kafkaTemplate.send(failure.getTopic(), failure.getEventKey(), eventObject).get(15, TimeUnit.SECONDS);
                 repository.delete(failure);
-                log.info("Successfully recovered event for key: {}", failure.getEventKey());
-
+                processedCount++;
+                log.info("Successfully recovered event for key: {}, SMS Event: {}", failure.getEventKey(), eventObject);
             } catch (Exception e) {
-                log.error("Recovery failed for key: {}. Stopping batch. Error: {}", failure.getEventKey(), e.getMessage());
-                // Break the loop: If Kafka is still down, don't keep trying the rest of the batch
+                log.error("Kafka unreachable. Reverting remaining {} records to PENDING.", failures.size() - i);
+                for (int j = i; j < failures.size(); j++) {
+                    FailedKafkaEvent remaining = failures.get(j);
+                    remaining.setStatus("PENDING");
+                    remaining.setRetryCount(remaining.getRetryCount() + 1);
+                }
+                repository.saveAll(failures.subList(i, failures.size()));
                 break;
             }
         }
+        log.info("Successfully recovered {}/{} events.", processedCount, failures.size());
     }
 }

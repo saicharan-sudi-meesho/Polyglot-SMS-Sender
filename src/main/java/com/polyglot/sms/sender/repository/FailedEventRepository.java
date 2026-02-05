@@ -8,6 +8,17 @@ import java.util.List;
 
 @Repository
 public interface FailedEventRepository extends JpaRepository<FailedKafkaEvent, Long> {
-    @Query(value = "SELECT * FROM failed_kafka_events ORDER BY created_at ASC LIMIT 50", nativeQuery = true)
-    List<FailedKafkaEvent> findTop50Oldest();
+    @Query(value = """
+        UPDATE failed_kafka_events
+        SET status = 'PROCESSING'
+        WHERE id IN (
+            SELECT id FROM failed_kafka_events
+            WHERE status = 'PENDING'
+            ORDER BY created_at ASC
+            LIMIT 50
+            FOR UPDATE SKIP LOCKED
+        ) 
+        RETURNING *
+        """, nativeQuery = true)
+    List<FailedKafkaEvent> claimAndGetTop50Pending();
 }
