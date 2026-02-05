@@ -6,7 +6,7 @@ import lombok.Data;
 @Data
 @Builder
 public class SmsResponse {
-    public String userId;
-    public String status;// success, blocked, internal_error
-    public String message;
+    private String userId;
+    private SmsStatus status;// success, blocked, internal_error
+    private String message;
 }

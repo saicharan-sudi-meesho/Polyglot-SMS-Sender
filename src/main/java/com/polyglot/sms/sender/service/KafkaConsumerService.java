@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class KafkaConsumerService {// This service is just for testing purpose
 
-    @KafkaListener(topics = "${app.kafka.topic.sms-events}", groupId = "sms-sender-debug-group")
+    @KafkaListener(topics = "${app.kafka.topic.sms-events}", groupId = "${spring.kafka.consumer.group-id}")
     public void listen(SmsEvent event) {
         log.info("[DEBUG CONSUMER] Received Message from Kafka: {}", event);
         log.info("   -> Status: {}", event.getStatus());

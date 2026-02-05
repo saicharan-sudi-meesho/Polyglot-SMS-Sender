@@ -13,6 +13,6 @@ import lombok.NoArgsConstructor;
 public class SmsEvent {
     private String userId;
     private String messageContent;
-    private String status;
+    private SmsStatus status;
     private long timestamp;
 }

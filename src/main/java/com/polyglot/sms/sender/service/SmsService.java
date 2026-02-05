@@ -7,6 +7,7 @@ import com.polyglot.sms.sender.dto.SmsResponse;
 import org.springframework.beans.factory.annotation.Value;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.polyglot.sms.sender.dto.SmsStatus;
 
 @Service
 @RequiredArgsConstructor
@@ -29,7 +30,7 @@ public class SmsService {
                 log.warn("User: {} is blocked. Sending SMS failed.", userId);
                 return SmsResponse.builder()
                     .userId(userId)
-                    .status("BLOCKED")
+                    .status(SmsStatus.BLOCKED)
                     .message("User is blocked from sending SMS")
                     .build();
             }
@@ -37,7 +38,7 @@ public class SmsService {
             log.error("Failed to reach Redis", e);
             return SmsResponse.builder()
                     .userId(userId)
-                    .status("INTERNAL_ERROR")
+                    .status(SmsStatus.INTERNAL_ERROR)
                     .message("Failed to process, Redis Service is down")
                     .build();
         }
@@ -45,7 +46,7 @@ public class SmsService {
 
         // Call 3rd Party API (Mocked)
         boolean vendorSuccess = callMockThirdPartyApi(request);
-        String status = vendorSuccess ? "SUCCESS" : "FAIL";
+        SmsStatus status = vendorSuccess ? SmsStatus.SUCCESS : SmsStatus.FAIL;
 
         SmsEvent event = SmsEvent.builder()
                 .userId(request.getUserId())
@@ -63,17 +64,16 @@ public class SmsService {
             // Retry Logic to be implemented
             return SmsResponse.builder()
                     .userId(userId)
-                    .status("INTERNAL_ERROR")
+                    .status(SmsStatus.INTERNAL_ERROR)
                     .message("Failed to process request, Kafka is down")
                     .build();
         }
 
 
-
         return SmsResponse.builder()
             .userId(request.getUserId())
             .status(status)
-            .message("SMS request accepted for delivery")
+            .message(SmsStatus.SUCCESS.equals(status) ? "SMS accepted for delivery" : "Failed at 3rd Party vendor")
             .build();
     }
 

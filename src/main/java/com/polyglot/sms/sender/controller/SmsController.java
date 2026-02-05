@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.http.HttpStatus;
+import com.polyglot.sms.sender.dto.SmsStatus;
 
 
 @RestController
@@ -24,11 +25,11 @@ public class SmsController {
     @PostMapping("/send")
     public ResponseEntity<?> sendSms(@Valid @RequestBody SmsRequest request){
         SmsResponse response = smsService.sendSms(request);
-        if ("BLOCKED".equals(response.getStatus())) {
+        if (SmsStatus.BLOCKED.equals(response.getStatus())) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
         }
 
-        if("INTERNAL_ERROR".equals(response.getStatus())){
+        if(SmsStatus.INTERNAL_ERROR.equals(response.getStatus())){
             return ResponseEntity.internalServerError()
                     .body(response);
         }
