@@ -21,7 +21,7 @@ public class SmsController {
     
     private final SmsService smsService;
 
-    @PostMapping("send")
+    @PostMapping("/send")
     public ResponseEntity<?> sendSms(@Valid @RequestBody SmsRequest request){
         SmsResponse response = smsService.sendSms(request);
         if ("BLOCKED".equals(response.getStatus())) {
@@ -33,7 +33,7 @@ public class SmsController {
                     .body(response);
         }
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
     
 }

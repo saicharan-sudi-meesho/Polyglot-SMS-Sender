@@ -13,11 +13,22 @@ public class KafkaConfig {
     @Value("${app.kafka.topic.sms-events}")
     private String topicName;
 
+    // Add these injected values
+    @Value("${app.kafka.topic.partitions}")
+    private int partitions;
+
+    @Value("${app.kafka.topic.replication-factor}")
+    private short replicationFactor;
+
+    @Value("${app.kafka.topic.min-insync-replicas:2}")
+    private String minInsyncReplicas;
+
     @Bean
     public NewTopic smsEventsTopic() {
         return TopicBuilder.name(topicName)
-                .partitions(3)
-                .replicas(3)
+                .partitions(partitions)
+                .replicas(replicationFactor)
+                .config("min.insync.replicas", minInsyncReplicas)
                 .build();
     }
 }

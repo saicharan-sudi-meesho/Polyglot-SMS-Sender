@@ -9,7 +9,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import java.util.List;
-
+import com.polyglot.sms.sender.dto.SmsEvent;
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -32,8 +32,8 @@ public class KafkaRecoveryScheduler {
 
         for (FailedKafkaEvent failure : failures) {
             try {
-                //  Converting JSON String back to an Object
-                Object eventObject = objectMapper.readValue(failure.getEventPayload(), Object.class);
+                // Converting JSON String back to an Object
+                SmsEvent eventObject = objectMapper.readValue(failure.getEventPayload(), SmsEvent.class);
 
                 // Resend to Kafka and wait for confirmation (.get())
                 kafkaTemplate.send(failure.getTopic(), failure.getEventKey(), eventObject).get();

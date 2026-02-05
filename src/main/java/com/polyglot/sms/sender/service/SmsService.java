@@ -73,7 +73,7 @@ public class SmsService {
         return SmsResponse.builder()
             .userId(request.getUserId())
             .status(status)
-            .message("SMS sent successfully")
+            .message("SMS request accepted for delivery")
             .build();
     }
 
