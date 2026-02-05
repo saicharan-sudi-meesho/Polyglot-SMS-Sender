@@ -22,8 +22,9 @@ public class KafkaRecoveryScheduler {
 
     @Scheduled(fixedDelay = 60000)
     public void retryFailedEvents() {
-        
-        List<FailedKafkaEvent> failures = repository.claimAndGetTop50Pending();
+        long now = System.currentTimeMillis();
+        long timeoutThreshold = now - (5 * 60 * 1000); // 5-minute lease
+        List<FailedKafkaEvent> failures = repository.claimExpiredOrPending(now, timeoutThreshold);
         
         if (failures.isEmpty()) {
             return;

@@ -10,6 +10,7 @@ import com.polyglot.sms.sender.repository.FailedEventRepository;
 import java.util.concurrent.CompletableFuture;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.polyglot.sms.sender.dto.SmsEvent;
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -46,10 +47,12 @@ public class KafkaProducerService {
         try {
             // Convert the object to a JSON String
             String payload = objectMapper.writeValueAsString(event);
+            SmsEvent smsEvent = (SmsEvent) event;
             
             FailedKafkaEvent fallback = FailedKafkaEvent.builder()
                     .topic(topic)
                     .eventKey(key)
+                    .idempotencyKey(smsEvent.getIdempotencyKey())
                     .eventPayload(payload)
                     .createdAt(System.currentTimeMillis())
                     .build();

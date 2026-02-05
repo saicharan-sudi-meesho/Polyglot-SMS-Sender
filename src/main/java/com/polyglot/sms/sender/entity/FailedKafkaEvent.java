@@ -22,11 +22,13 @@ public class FailedKafkaEvent {
     
     private String topic;
     private String eventKey;
+    private String idempotencyKey; //  Unique ID for deduplication
     
     @Column(columnDefinition = "TEXT") // Stores the JSON payload
     private String eventPayload;
     
     private long createdAt;
+    private Long processingAt; // Tracks when an instance took the lease
     @Builder.Default
     private String status = "PENDING"; // PENDING, PROCESSING
     @Builder.Default

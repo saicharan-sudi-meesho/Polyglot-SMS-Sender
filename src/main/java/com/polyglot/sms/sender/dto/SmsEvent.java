@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor // for builder
 public class SmsEvent {
     private String userId;
+    private String idempotencyKey;
     private String messageContent;
     private SmsStatus status;
     private long timestamp;

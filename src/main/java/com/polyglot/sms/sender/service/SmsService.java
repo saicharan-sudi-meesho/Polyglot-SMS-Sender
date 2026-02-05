@@ -8,7 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.polyglot.sms.sender.dto.SmsStatus;
-
+import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -50,6 +50,7 @@ public class SmsService {
 
         SmsEvent event = SmsEvent.builder()
                 .userId(request.getUserId())
+                .idempotencyKey(UUID.randomUUID().toString()) // unique ID
                 .messageContent(request.getMessage())
                 .status(status)
                 .timestamp(System.currentTimeMillis())
