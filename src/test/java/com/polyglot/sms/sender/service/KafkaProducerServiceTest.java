@@ -12,7 +12,8 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.TopicPartition;
-
+import com.polyglot.sms.sender.dto.SmsEvent;
+import com.polyglot.sms.sender.dto.SmsStatus;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -40,7 +41,13 @@ class KafkaProducerServiceTest {
 
     private final String topic = "test-topic";
     private final String key = "user-123";
-    private final String payload = "{ \"msg\": \"hello\" }";
+
+    private final SmsEvent payload = SmsEvent.builder()
+            .userId("user-123")
+            .messageContent("hello")
+            .status(SmsStatus.SUCCESS)
+            .idempotencyKey("unique-id-123")
+            .build();
 
     @Test
     @DisplayName("Should successfully send message to Kafka")
@@ -65,10 +72,11 @@ class KafkaProducerServiceTest {
 
     @Test
     @DisplayName("Should save to SQL when Kafka throws Synchronous Exception")
-    void testSendMessage_SyncFailure() {
+    void testSendMessage_SyncFailure() throws Exception{
         // Arrange
         when(kafkaTemplate.send(anyString(), anyString(), any()))
                 .thenThrow(new RuntimeException("Kafka Down"));
+        when(objectMapper.writeValueAsString(payload)).thenReturn("{\"json\":\"payload\"}");
 
         // Act
         kafkaProducerService.sendMessage(topic, key, payload);
@@ -81,16 +89,18 @@ class KafkaProducerServiceTest {
         verify(repository).save(captor.capture());
         assertThat(captor.getValue().getEventKey()).isEqualTo(key);
         assertThat(captor.getValue().getTopic()).isEqualTo(topic);
+        assertThat(captor.getValue().getIdempotencyKey()).isEqualTo(payload.getIdempotencyKey());
     }
 
     @Test
     @DisplayName("Should save to SQL when Kafka fails Asynchronously")
-    void testSendMessage_AsyncFailure() {
+    void testSendMessage_AsyncFailure() throws Exception{
         // Arrange: send() works, but the future fails later
         CompletableFuture<SendResult<String, Object>> future = new CompletableFuture<>();
         future.completeExceptionally(new RuntimeException("Network issue mid-send"));
         
         when(kafkaTemplate.send(topic, key, payload)).thenReturn(future);
+        when(objectMapper.writeValueAsString(payload)).thenReturn("{\"json\":\"payload\"}");
 
         // Act
         kafkaProducerService.sendMessage(topic, key, payload);
@@ -103,10 +113,11 @@ class KafkaProducerServiceTest {
 
     @Test
     @DisplayName("Should log error when both Kafka and SQL fail")
-    void testSendMessage_TotalFailure() {
+    void testSendMessage_TotalFailure() throws Exception {
         // Arrange
         when(kafkaTemplate.send(anyString(), anyString(), any()))
                 .thenThrow(new RuntimeException("Kafka Dead"));
+        when(objectMapper.writeValueAsString(payload)).thenReturn("{\"json\":\"payload\"}");
         when(repository.save(any(FailedKafkaEvent.class)))
                 .thenThrow(new RuntimeException("SQL Dead"));
 

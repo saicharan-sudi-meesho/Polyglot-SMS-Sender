@@ -18,7 +18,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.eq;
 import org.mockito.ArgumentCaptor;
 import com.polyglot.sms.sender.dto.SmsEvent;
-
+import com.polyglot.sms.sender.dto.SmsStatus;
 @ExtendWith(MockitoExtension.class)
 public class SmsServiceTest {
 
@@ -47,7 +47,7 @@ public class SmsServiceTest {
         SmsResponse response = smsService.sendSms(request);
 
         // Assert
-        assertThat(response.getStatus()).isEqualTo("BLOCKED");
+        assertThat(response.getStatus()).isEqualTo(SmsStatus.BLOCKED);
         verify(kafkaProducerService, never()).sendMessage(any(), any(), any());
     }
 
@@ -62,7 +62,7 @@ public class SmsServiceTest {
         SmsResponse response = smsService.sendSms(request);
 
         // Assert
-        assertThat(response.getStatus()).isEqualTo("INTERNAL_ERROR");
+        assertThat(response.getStatus()).isEqualTo(SmsStatus.INTERNAL_ERROR);
         verify(kafkaProducerService, never()).sendMessage(any(), any(), any());
     }
 
@@ -77,7 +77,7 @@ public class SmsServiceTest {
         SmsResponse response = smsService.sendSms(request);
 
         // Assert
-        assertThat(response.getStatus()).isEqualTo("INTERNAL_ERROR");
+        assertThat(response.getStatus()).isEqualTo(SmsStatus.INTERNAL_ERROR);
     }
 
     @Test
@@ -90,7 +90,7 @@ public class SmsServiceTest {
         SmsResponse response = smsService.sendSms(request);
 
         // Assert
-        assertThat(response.getStatus()).isEqualTo("SUCCESS");
+        assertThat(response.getStatus()).isEqualTo(SmsStatus.SUCCESS);
 
         // Verify
         ArgumentCaptor<SmsEvent> eventCaptor = ArgumentCaptor.forClass(SmsEvent.class);
@@ -98,6 +98,6 @@ public class SmsServiceTest {
 
         SmsEvent capturedEvent = eventCaptor.getValue();
         assertThat(capturedEvent.getUserId()).isEqualTo("1234567890");
-        assertThat(capturedEvent.getStatus()).isEqualTo("SUCCESS");
+        assertThat(capturedEvent.getStatus()).isEqualTo(SmsStatus.SUCCESS);
     }
 }

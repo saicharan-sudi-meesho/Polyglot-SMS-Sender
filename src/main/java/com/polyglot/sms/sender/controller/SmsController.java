@@ -34,6 +34,10 @@ public class SmsController {
                     .body(response);
         }
 
+        if (SmsStatus.FAIL.equals(response.getStatus())) {
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(response);
+        }
+
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
     
