@@ -39,7 +39,7 @@ public class SmsService {
             return SmsResponse.builder()
                     .userId(userId)
                     .status(SmsStatus.INTERNAL_ERROR)
-                    .message("Failed to process, Redis Service is down")
+                    .message("Failed to process, Internal Server Error! Please try again later.")
                     .build();
         }
 
@@ -62,7 +62,6 @@ public class SmsService {
             log.info("Event published to Kafka topic '{}': {}", topicName, event);
         } catch (Exception e) {
             log.error("Failed to publish to Kafka", e);
-            // Retry Logic to be implemented
             return SmsResponse.builder()
                     .userId(userId)
                     .status(SmsStatus.INTERNAL_ERROR)
